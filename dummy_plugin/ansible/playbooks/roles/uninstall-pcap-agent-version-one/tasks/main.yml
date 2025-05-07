@@ -1,0 +1,90 @@
+--- 
+# playbook for uninstalling pcap-agent agent
+
+- name: Gather facts
+  setup:
+
+- name: Set fact for Uninstallation of pcap-agent
+  set_fact:
+    pcap_agent_dir: "/opt/regal/pcap-agent"
+    pcap_agent_venv_path: "/opt/regal/pcap-agent/"
+    app_name: "pcap-agent"
+
+- name: Stop pcap-agent service
+  systemd:
+    name: "{{ app_name }}"
+    state: stopped
+  ignore_errors: yes
+
+- name: Remove pcap-agent service file
+  file:
+    path: "/etc/systemd/system/{{ app_name }}.service"
+    state: absent
+  notify: Reload systemd
+
+- name: Remove pcap-agent directory
+  file:
+    path: "{{ pcap_agent_dir }}"
+    state: absent
+
+- name: Remove pcap-agent virtual environment
+  file:
+    path: "{{ pcap_agent_venv_path }}"
+    state: absent
+
+- name: Check if firewalld is available
+  command: which firewall-cmd
+  register: firewalld_check
+  ignore_errors: yes
+  changed_when: false
+
+- name: Check if ufw is available
+  command: which ufw
+  register: ufw_check
+  ignore_errors: yes
+  changed_when: false
+
+- name: Remove firewall rule using firewalld
+  shell: |
+    firewall-cmd --zone=public --remove-port=30063/tcp --permanent
+    firewall-cmd --reload
+  when: firewalld_check.rc == 0
+  ignore_errors: yes
+  become: true
+
+- name: Remove firewall rule using ufw
+  shell: |
+    ufw delete allow 30063/tcp
+    ufw reload
+  when: ufw_check.rc == 0
+  ignore_errors: yes
+  become: true
+
+- name: Remove firewall rule using iptables
+  iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: 30063
+    jump: ACCEPT
+    state: absent
+  become: true
+  when: firewalld_check.rc != 0 and ufw_check.rc != 0
+
+- name: Save iptables rules
+  shell: iptables-save > /etc/iptables/rules.v4
+  become: true
+  when: firewalld_check.rc != 0 and ufw_check.rc != 0
+  ignore_errors: yes
+
+
+- name: Check if /opt/regal is empty
+  find:
+    paths: /opt/regal
+    file_type: any
+  register: regal_contents
+
+- name: Remove /opt/regal directory if empty
+  file:
+    path: /opt/regal
+    state: absent
+  when: regal_contents.matched == 0

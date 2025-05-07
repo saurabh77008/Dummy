@@ -1,0 +1,8 @@
+---
+
+- hosts: "{{host}}"
+  gather_facts: false
+  roles:
+    - { role: install-pcap-agent, tags: ['install-pcap-agent']}
+    - { role: uninstall-pcap-agent, tags: ['uninstall-pcap-agent']}
+    - { role: uninstall-pcap-agent-version-one, tags: ['uninstall-pcap-agent-version-one']}

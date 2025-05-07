@@ -1,0 +1,138 @@
+--- 
+# playbook for installing pcap-agent agent
+
+- name: Gather facts
+  setup:
+
+- name: Create directory
+  file: 
+    path: "{{ path }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy Pcap-Agent tarball 
+  copy:
+    src: "{{ pcap_agent_tarball_path }}"
+    dest: "{{ path }}"
+    mode: '0644'
+
+- name: Set fact for pcap-agent tarball name
+  set_fact:
+    pcap_agent_tarball: '{{ pcap_agent_tarball_path.split("/")[-1] }}'
+
+- name: Untar pcap-agent tarball
+  shell: "tar -xzvf {{ path }}/{{ pcap_agent_tarball }}"
+  args:
+    chdir : "{{ path }}"
+
+- name: Set fact for pcap-agent dir
+  set_fact:
+    pcap_agent_dir: "{{ path }}/pcap-agent"
+    app_name: "{{ service_name }}"
+    debug_log_path : "{{ path }}/pcap-agent/pcap_agent/pcap_agent_debug.log"
+    error_log_path : "{{ path }}/pcap-agent/pcap_agent/pcap_agent_error.log"
+    agent_port: "{{ agent_port }}"
+    agent_version: "{{ agent_version }}"
+    max_pcap_time_limit: "{{ max_pcap_time_limit }}"
+    max_pcap_size_limit: "{{ max_pcap_size_limit }}"
+    pcap_save_path: "{{ pcap_save_path }}"
+    pcap_log_file_size: "{{ pcap_log_file_size }}"
+
+
+- name: Set approprite permission
+  file:
+    path: "{{ pcap_agent_dir }}"
+    owner: root
+    group: root 
+    mode: '0755'
+    recurse: yes
+
+
+- name: Check if firewalld is available
+  command: which firewall-cmd
+  register: firewalld_check
+  ignore_errors: yes
+  changed_when: false
+
+- name: Check if ufw is available
+  command: which ufw
+  register: ufw_check
+  ignore_errors: yes
+  changed_when: false
+
+- name: Open firewall port using firewalld
+  shell: |
+    firewall-cmd --zone=public --add-port={{ agent_port }}/tcp --permanent
+    firewall-cmd --reload
+  when: firewalld_check.rc == 0
+  ignore_errors: yes
+
+- name: Open firewall port using ufw
+  shell: |
+    ufw allow {{ agent_port }}/tcp
+    ufw reload
+  when: ufw_check.rc == 0
+  ignore_errors: yes
+
+- name: Open firewall port using iptables
+  iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "{{ agent_port }}"
+    jump: ACCEPT
+  become: true
+  when: firewalld_check.rc != 0 and ufw_check.rc != 0
+
+- name: Save iptables rules
+  shell: iptables-save > /etc/iptables/rules.v4
+  become: true
+  when: firewalld_check.rc != 0 and ufw_check.rc != 0
+  ignore_errors: yes
+
+- name: Create or update config.json file. 
+  copy:
+    dest: "{{ pcap_agent_dir }}/pcap_agent/config.json"
+    content: "{{ config_data | to_nice_json }}"
+    mode: '0644'
+  vars:
+    config_data:
+      PCAP_AGENT_REST_PORT: "{{ agent_port }}"
+      PCAP_AGENT_DEBUG_LOG_PATH: "{{ debug_log_path }}"
+      PCAP_AGENT_ERROR_LOG_PATH: "{{ error_log_path }}"
+      PCAP_AGENT_VERSION: "{{ agent_version }}"
+      DEFAULT_PCAP_SIZE_LIMIT: "{{ max_pcap_size_limit }}"
+      DEFAULT_TIME_LIMIT: "{{ max_pcap_time_limit }}"
+      PCAP_PATH : "{{ pcap_save_path }}"
+      PCAP_LOG_FILE_SIZE: "{{ pcap_log_file_size }}"
+  
+- name: Create systemd service file for pcap-agent
+  copy:
+    dest: "/etc/systemd/system/{{ app_name }}.service"
+    content: |
+      [Unit]
+      Description={{ app_name }} Service
+      After=network.target
+      
+      [Service]
+      ExecStart={{ pcap_agent_dir }}/pcap_agent/pcap_agent
+      WorkingDirectory={{ pcap_agent_dir }}/pcap_agent
+      User=root
+      Group=root
+      Restart=always
+      
+      [Install]
+      WantedBy=multi-user.target
+  notify: Reload systemd
+
+- name: Enable and start pcap-agent service
+  systemd:
+    name: "{{ app_name }}"
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Remove pcap-agent tarball
+  file:
+    path: "{{ path }}/{{ pcap_agent_tarball }}"
+    state: absent
+

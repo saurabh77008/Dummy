@@ -1,0 +1,6 @@
+--- 
+# handlers file for install-pcap-agent
+
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes

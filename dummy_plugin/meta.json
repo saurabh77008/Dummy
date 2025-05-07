@@ -1,0 +1,27 @@
+{
+    "pluginName": "dummy_plugin",
+    "version": "1.0.0",
+    "type": "Apps",
+    "authors": [
+        "Author1"
+    ],
+    "description": "Dummy Plugin for Hello World App",
+    "moreInfo": {
+        "note": "This is a sample plugin"
+    },
+    "dependencies": [],
+    "compatibleRegal": {
+        "minVersion": "4.8.0",
+        "maxVersion": "4.10.0"
+    },
+    "signature": "DummySignature",
+    "settings": {
+        "plugins": [
+            {
+                "name": "Dummy",
+                "version": "1.0.0",
+                "className": "dummy_app.DummyPlugin"
+            }
+        ]
+    }
+}

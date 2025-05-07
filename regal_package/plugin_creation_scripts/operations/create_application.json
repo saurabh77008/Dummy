@@ -1,0 +1,27 @@
+{
+    "verticalRefDetails": {
+        "useExisting": true,
+        "verticalName": "dummy-app"
+    },
+    "categoryRefDetails": {
+        "useExisting": true,
+        "categoryName": "dummy-app"
+    },
+    "pluginPackageRefDetails": [
+        {
+            "useExisting": false,
+            "pluginPackageName": "dummy-app",
+            "file_path": "../dummy_plugin@1.0.0.rp"
+        }
+    ],
+    "appPackageRefDetails": {
+        "useExisting": false,
+        "appName": "dummy-appcd ",
+        "version": "1.0.0",
+        "file_path": "../dummy-app-1.0.0.tar.gz",
+        "packageType": "Apps"
+    },
+    "applicationName": "dummy",
+    "version": "1.0.0",
+    "description": "Dummy Application"
+}
